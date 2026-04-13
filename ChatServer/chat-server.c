@@ -1,6 +1,7 @@
 #include <netdb.h>
 #include <string.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <poll.h>
 #include <sys/poll.h>
 #include <sys/socket.h>
@@ -9,25 +10,124 @@
 
 #define PORT "3490" //TODO CHANGE THIS TO 6969?
 
+int make_listener_socket(){
+
+	//Filling in values for the structs
+	struct addrinfo hints, *res, *p;
+	int sockfd;
+	int status;
+	int listener;
+	int yes = 1;
+	socklen_t addr_size;
+	struct sockaddr_storage their_addr;
+	char buf[1024];
+
+
+	//Setting hints and clearing memory
+	memset(&hints, 0, sizeof hints);
+	hints.ai_family = AF_UNSPEC;
+	hints.ai_socktype = SOCK_STREAM;
+	hints.ai_flags = AI_PASSIVE;
+	
+	if((status = getaddrinfo(NULL, PORT, &hints, &res)) != 0){
+
+		fprintf(stderr, "getaddrinfo: %s\n", gai_strerror(status));
+		return 1;
+	}
+
+
+	//Loop through all the results and bind to the first one that we can
+	for (p = res; p != NULL; p = p->ai_next){
+
+		//Try to get a socket
+		listener = socket(p->ai_family, p->ai_socktype, p->ai_protocol);
+
+		if (listener == -1){
+			continue;
+		}
+
+		//Losing the address already in use error
+		setsockopt(listener, SOL_SOCKET, SO_REUSEADDR, &yes, sizeof(int));
+
+		//Try to bind
+		if ((bind(listener, p->ai_addr, p->ai_addrlen)) == -1){
+			close(listener);
+			continue;
+		}
+
+		//Once bound we cna exit the loop	
+		break;
+	}
+
+	if (p == NULL){
+		return -1;
+	}
+
+	freeaddrinfo(res);
+
+	//Start the socket listening
+	if (listen(listener, 10) == -1){
+		return -1;
+	}
+
+	return listener;
+}
+
+int add_client(int* pfds_count, int* pfds_total_count, struct pollfd* pfds, int socket){
+
+	//Add socket to pfds array
+	
+	if (pfds_count == pfds_total_count){ //If we go beyond the bounds of the array realloc double
+		
+		pfds = realloc(pfds, (*pfds_total_count * 2) * sizeof(struct pollfd));
+
+		if (pfds == NULL){
+			printf("Failed to reallocate memory for the array");
+			exit(-1);
+		}
+
+		pfds[*pfds_count].fd = socket;
+		pfds[*pfds_count].events = POLLIN;
+		(*pfds_count)++;
+
+	}else{ //Just add the item to the array
+
+		pfds[*pfds_count].fd = socket;
+		pfds[*pfds_count].events = POLLIN;
+		(*pfds_count)++;
+	}
+}
+
+int remove_client(){
+
+
+}
 
 
 
-int add_client(int listener, int* pfds_count, struct pollfd* pfds){
-
+int process_client(int listener, int* pfds_count, int* pfds_total_count, struct pollfd* pfds){
 
 	struct sockaddr_storage their_addr;
 	socklen_t addr_size = sizeof(their_addr);
 	int new_fd;
 
-
+	//Accept accepts the connection, and writes the user connection to the their_addr struct
 	new_fd = accept(listener, (struct sockaddr *)&their_addr, &addr_size);
 
 	if (new_fd == -1){
 		perror("accept");
 		printf("Failed to connect User");
+		return -1;
 	}
 
 	//Add the new socket to the pfds array
+	if (add_client(pfds_count, pfds_total_count, pfds, new_fd) == -1){
+		fprintf(stderr, "Failed to add client");
+		exit(1);
+	}
+
+	
+
 	//TODO: MAKE IT SO THAT IT ERRORS OUT OF BOUNDS
 	pfds[*pfds_count].fd = new_fd;
 	pfds[*pfds_count].events = POLLIN;
@@ -79,107 +179,40 @@ void process_client_data(int listener, int *pfds_count, struct pollfd* pfds, int
 }
 
 
-int make_listener_socket(){
-
-	//Filling in values for the structs
-	struct addrinfo hints, *res, *p;
-	int sockfd;
-	int status;
-	int listener;
-	int yes = 1;
-	socklen_t addr_size;
-	struct sockaddr_storage their_addr;
-	char buf[1024];
-
-
-
-	memset(&hints, 0, sizeof hints);
-	hints.ai_family = AF_UNSPEC;
-	hints.ai_socktype = SOCK_STREAM;
-	hints.ai_flags = AI_PASSIVE;
-	
-	if((status = getaddrinfo(NULL, "3490", &hints, &res)) != 0){
-
-		fprintf(stderr, "getaddrinfo: %s\n", gai_strerror(status));
-		return 1;
-	}
-
-
-	//Loop through all the results and bind to the first one that we can
-	for (p = res; p != NULL; p = p->ai_next){
-
-		//Try to get a socket
-		listener = socket(p->ai_family, p->ai_socktype, p->ai_protocol);
-
-		if (listener == -1){
-			continue;
-		}
-
-		//Losing the address already in use error
-		setsockopt(listener, SOL_SOCKET, SO_REUSEADDR, &yes, sizeof(int));
-
-		//Try to bind
-		if ((bind(listener, p->ai_addr, p->ai_addrlen)) == -1){
-			close(listener);
-			continue;
-		}
-
-		break;
-	}
-
-	if (p == NULL){
-		return -1;
-	}
-
-	freeaddrinfo(res);
-
-	if (listen(listener, 10) == -1){
-		return -1;
-	}
-
-	return listener;
-
-}
-
-
-void process_connections(int listener, int num_events, int* pfds_count, struct pollfd* pfds){
+void process_connections(int listener, int* pfds_count, int* pfds_total_count, struct pollfd* pfds){
 
 
 	for(int i = 0; i < *pfds_count; i++){
-		
 		//Update found!
 		if (pfds[i].revents & POLLIN){
 
-
-			//If it's the listener, accept and then add it to the array
+			//If it's the listener, add it to the array
 			if (pfds[i].fd == listener){
 
-				add_client(listener, pfds_count, pfds);
-
-				
+				process_client(listener, pfds_count, pfds_total_count, pfds);
 
 			//Broadcast to every one in the array except for myself
 			}else{
 
 				process_client_data(listener, pfds_count, pfds, &i);
 
-
 			};
 		}
-
-
-
-
 	}
-
-
 }
 
 int main(void){
 
 
-	//Creates an array of pollfd structs
-	struct pollfd pfds[5];
+	//Creates an dynamic array of pollfd structs
+	int pfds_total_size = 5;
+	struct pollfd* pfds = (struct pollfd*) malloc(pfds_total_size * sizeof(struct pollfd));
+
+	if (pfds == NULL){
+		printf("Memory for array failed to allocate.\n");
+		exit(1);
+	}
+
 	int pfds_count = 0;
 
 
@@ -193,9 +226,8 @@ int main(void){
 	puts("Server is Waiting for Connections....");
 
 	for (;;){
-
-		int num_events = poll(pfds, pfds_count, 2500);
-		process_connections(listener, num_events, &pfds_count, pfds);
+		int num_events = poll(pfds, pfds_count, 2500); //Server waits on this line till a port has activity
+		process_connections(listener, &pfds_count, &pfds_total_size, pfds);
 	}
 
 
