@@ -98,7 +98,19 @@ int add_client(int* pfds_count, int* pfds_total_count, struct pollfd* pfds, int 
 	}
 }
 
-int remove_client(){
+int remove_client(int socket, struct pollfd* pfds, int* pfds_count){
+
+	//Loop through the array and if the socket matches then we remove that member from the list and decremenet pfds_count
+	
+	for(int i = 0; i < *pfds_count; i++){
+
+		if (pfds[i].fd == socket){
+			//Remove the user
+			pfds[i] = pfds[*pfds_count -1];
+			(*pfds_count)--;
+		}
+
+	}
 
 
 }
@@ -126,14 +138,6 @@ int process_client(int listener, int* pfds_count, int* pfds_total_count, struct 
 		exit(1);
 	}
 
-	
-
-	//TODO: MAKE IT SO THAT IT ERRORS OUT OF BOUNDS
-	pfds[*pfds_count].fd = new_fd;
-	pfds[*pfds_count].events = POLLIN;
-	(*pfds_count)++;
-
-
 	printf("New connection added to the Group using socket %d", new_fd);
 
 	return 0;
@@ -158,7 +162,8 @@ void process_client_data(int listener, int *pfds_count, struct pollfd* pfds, int
 
 		close(pfds[*pfd_i].fd); //Close this socket
 	
-		//TODO: Delete this socket from our list
+		remove_client(pfds[*pfd_i].fd, pfds, pfds_count);
+
 
 	} else{ //Good Client data
 		
