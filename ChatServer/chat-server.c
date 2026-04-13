@@ -1,4 +1,3 @@
-#include <asm-generic/socket.h>
 #include <netdb.h>
 #include <string.h>
 #include <stdio.h>
@@ -8,7 +7,7 @@
 #include <unistd.h>
 
 
-#define PORT "3490"
+#define PORT "3490" //TODO CHANGE THIS TO 6969?
 
 
 
@@ -17,13 +16,13 @@ int add_client(int listener, int* pfds_count, struct pollfd* pfds){
 
 
 	struct sockaddr_storage their_addr;
-	socklen_t addr_size;
+	socklen_t addr_size = sizeof(their_addr);
 	int new_fd;
 
 
 	new_fd = accept(listener, (struct sockaddr *)&their_addr, &addr_size);
 
-	if ( new_fd == -1){
+	if (new_fd == -1){
 		perror("accept");
 		printf("Failed to connect User");
 	}
@@ -32,6 +31,7 @@ int add_client(int listener, int* pfds_count, struct pollfd* pfds){
 	//TODO: MAKE IT SO THAT IT ERRORS OUT OF BOUNDS
 	pfds[*pfds_count].fd = new_fd;
 	pfds[*pfds_count].events = POLLIN;
+	(*pfds_count)++;
 
 
 	printf("New connection added to the Group using socket %d", new_fd);
@@ -109,7 +109,7 @@ int make_listener_socket(){
 	for (p = res; p != NULL; p = p->ai_next){
 
 		//Try to get a socket
-		listener = socket(res->ai_family, res->ai_socktype, res->ai_protocol);
+		listener = socket(p->ai_family, p->ai_socktype, p->ai_protocol);
 
 		if (listener == -1){
 			continue;
@@ -119,10 +119,12 @@ int make_listener_socket(){
 		setsockopt(listener, SOL_SOCKET, SO_REUSEADDR, &yes, sizeof(int));
 
 		//Try to bind
-		if ((bind(listener, res->ai_addr, res->ai_addrlen)) == -1){
+		if ((bind(listener, p->ai_addr, p->ai_addrlen)) == -1){
 			close(listener);
 			continue;
 		}
+
+		break;
 	}
 
 	if (p == NULL){
@@ -140,7 +142,7 @@ int make_listener_socket(){
 }
 
 
-int process_connections(int listener, int num_events, int* pfds_count, struct pollfd* pfds){
+void process_connections(int listener, int num_events, int* pfds_count, struct pollfd* pfds){
 
 
 	for(int i = 0; i < *pfds_count; i++){
