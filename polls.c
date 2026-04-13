@@ -13,7 +13,7 @@
 
 
 
-int add_client(int listener){
+int add_client(int listener, int pfds_count, struct pollfd* pfds){
 
 
 	struct sockaddr_storage their_addr;
@@ -29,17 +29,20 @@ int add_client(int listener){
 	}
 
 	//Add the new socket to the pfds array
-	
-	
+	//TODO: MAKE IT SO THAT IT ERRORS OUT OF BOUNDS
+	pfds[pfds_count].fd = new_fd;
+	pfds[pfds_count].events = POLLIN;
 
 
+	printf("New connection added to the Group");
 
-
-
-
+	return 0;
 }
 
 int process_client_data(){
+
+	//loop through the pfds list if the revent is set as it's been heard, we 
+	//broadcast that mesage to everyone
 
 }
 
@@ -116,6 +119,8 @@ int process_connections(int listener, int num_events, int pfds_count, struct pol
 
 			//If it's the listener, accept and then add it to the array
 			if (pfds[i].fd == listener){
+
+				add_client(listener, pfds_count, pfds)
 
 				
 
