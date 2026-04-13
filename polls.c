@@ -30,11 +30,16 @@ int add_client(int listener){
 
 	//Add the new socket to the pfds array
 	
+	
 
 
 
 
 
+
+}
+
+int process_client_data(){
 
 }
 
