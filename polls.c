@@ -13,7 +13,7 @@
 
 
 
-int add_client(int listener, int pfds_count, struct pollfd* pfds){
+int add_client(int listener, int* pfds_count, struct pollfd* pfds){
 
 
 	struct sockaddr_storage their_addr;
@@ -30,20 +30,52 @@ int add_client(int listener, int pfds_count, struct pollfd* pfds){
 
 	//Add the new socket to the pfds array
 	//TODO: MAKE IT SO THAT IT ERRORS OUT OF BOUNDS
-	pfds[pfds_count].fd = new_fd;
-	pfds[pfds_count].events = POLLIN;
+	pfds[*pfds_count].fd = new_fd;
+	pfds[*pfds_count].events = POLLIN;
 
 
-	printf("New connection added to the Group");
+	printf("New connection added to the Group using socket %d", new_fd);
 
 	return 0;
 }
 
-int process_client_data(){
+void process_client_data(int listener, int *pfds_count, struct pollfd* pfds, int *pfd_i){
 
-	//loop through the pfds list if the revent is set as it's been heard, we 
-	//broadcast that mesage to everyone
+	//buffer for client data
+	char buf[256];
 
+	//Recieve the message
+	int nbytes = recv(pfds[*pfd_i].fd, buf, sizeof buf, 0);
+	//Record who sent it (so we don't send the message back to them)
+	int sender_fd = pfds[*pfd_i].fd;
+
+	if (nbytes <= 0){ //Any error or connection closed
+		if (nbytes == 0){
+			printf("Server: socket %d hung up\n", sender_fd);
+		}else{
+			perror("recv");
+		}
+
+		close(pfds[*pfd_i].fd); //Close this socket
+	
+		//TODO: Delete this socket from our list
+
+	} else{ //Good Client data
+		
+		printf("server: recv from fd %d: %.*s", sender_fd, nbytes, buf);
+
+		for (int j = 0; j < *pfds_count; j++){
+			int dest_fd = pfds[j].fd;
+
+			//Except the listener and outselves
+			if (dest_fd != listener && dest_fd != sender_fd){
+				if (send(dest_fd, buf, nbytes, 0) == -1){
+					perror("send");
+				}
+			}
+		}
+
+	}
 }
 
 
@@ -87,7 +119,7 @@ int make_listener_socket(){
 		setsockopt(listener, SOL_SOCKET, SO_REUSEADDR, &yes, sizeof(int));
 
 		//Try to bind
-		if ((bind(sockfd, res->ai_addr, res->ai_addrlen)) == -1){
+		if ((bind(listener, res->ai_addr, res->ai_addrlen)) == -1){
 			close(listener);
 			continue;
 		}
@@ -108,10 +140,10 @@ int make_listener_socket(){
 }
 
 
-int process_connections(int listener, int num_events, int pfds_count, struct pollfd* pfds){
+int process_connections(int listener, int num_events, int* pfds_count, struct pollfd* pfds){
 
 
-	for(int i = 0; i < pfds_count; i++){
+	for(int i = 0; i < *pfds_count; i++){
 		
 		//Update found!
 		if (pfds[i].revents & POLLIN){
@@ -120,12 +152,15 @@ int process_connections(int listener, int num_events, int pfds_count, struct pol
 			//If it's the listener, accept and then add it to the array
 			if (pfds[i].fd == listener){
 
-				add_client(listener, pfds_count, pfds)
+				add_client(listener, pfds_count, pfds);
 
 				
 
 			//Broadcast to every one in the array except for myself
 			}else{
+
+				process_client_data(listener, pfds_count, pfds, &i);
+
 
 			};
 		}
@@ -153,38 +188,17 @@ int main(void){
 
 	pfds_count += 1;
 
-	int num_events = poll(pfds, pfds_count, 2500);
+	puts("Server is Waiting for Connections....");
 
-	process_connections(listener, num_events, pfds_count, pfds);
+	for (;;){
 
-
-
-
-
-
-	//Tells the struct at position 0 to watch the 0 file descriptor (standard in)
-	pfds[0].fd = 0; 
-	pfds[0].events = POLLIN;
-
-	printf("Hit RETURN or wait 2.5 seconds for timeout\n");
-	
-	int num_events = poll(pfds, 1, 2500); // 2.5 second timeout
-	
-	if (num_events == 0) {
-		printf("Poll timed out!\n");
-	} else {
-		int pollin_happened = pfds[0].revents & POLLIN;
-	
-		if (pollin_happened) {
-			printf("File descriptor %d is ready to read\n", pfds[0].fd);
-		} else {
-			printf("Unexpected event occurred: %d\n", pfds[0].revents);
-		}
+		int num_events = poll(pfds, pfds_count, 2500);
+		process_connections(listener, num_events, &pfds_count, pfds);
 	}
-	
-	return 0;
-
-
 
 
 }
+
+
+
+

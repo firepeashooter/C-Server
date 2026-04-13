@@ -8,7 +8,7 @@
 
 
 
-int main(){
+int main(int argc, char* argv[]){
 
 	//SETTING UP THE SOCKET
 	
@@ -50,17 +50,11 @@ int main(){
 	}
 
 
-	char* msg = "Hello Server This is the Client";
+	char* msg = argv[1];
 	int len, bytes_sent;
 
 	len = strlen(msg);
 
 	bytes_sent = send(sockfd, msg, len, 0);
-
-
-	char* msg2 = "Hello Server This is the Client Second Message to the same socket";
-	len = strlen(msg2);
-	bytes_sent = send(sockfd, msg2, len, 0);
-
 
 }
