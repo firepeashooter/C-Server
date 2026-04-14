@@ -10,6 +10,11 @@
 
 #define PORT "3490" //TODO CHANGE THIS TO 6969?
 
+struct Client{
+	int fd;
+	char username[50];
+};
+
 int make_listener_socket(){
 
 	//Filling in values for the structs
@@ -141,8 +146,19 @@ int process_client(int listener, int* pfds_count, int* pfds_total_count, struct 
 		fprintf(stderr, "Failed to add client");
 		exit(1);
 	}
+	
+	//recv their username
+	char username[1023];
 
-	printf("New connection added to the Group using socket %d", new_fd);
+	//TODO: We should probably loop this to get the whole thing if it's long
+	
+	//Recieves the username and add's a null character
+	int nbytes = recv(new_fd, username, sizeof(username), 0);
+	if (nbytes > 0) {
+		username[nbytes] = '\0'; 
+	}
+	
+	printf("New connection added to the Group using socket %d: USERNAME: %s ", new_fd, username);
 
 	return 0;
 }

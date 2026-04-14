@@ -4,11 +4,13 @@
 #include <sys/socket.h> // For socket(), connect()
 #include <netdb.h>      // For getaddrinfo() and struct addrinfo
 #include <unistd.h>     // For close()
+#include <stdlib.h>
 
 
 
+#define PORT "3490" //Make sure that this lines up with what the server is
 
-int main(int argc, char* argv[]){
+int get_socket(){
 
 	//SETTING UP THE SOCKET
 	
@@ -28,8 +30,7 @@ int main(int argc, char* argv[]){
 	hints.ai_flags = AI_PASSIVE;
 
 	//this is the dns lookup
-	if((status = getaddrinfo(NULL, "3490", &hints, &res)) != 0){
-
+	if((status = getaddrinfo(NULL, PORT, &hints, &res)) != 0){
 		fprintf(stderr, "getaddrinfo: %s\n", gai_strerror(status));
 		return 1;
 	};
@@ -49,12 +50,73 @@ int main(int argc, char* argv[]){
 		return 3;
 	}
 
+	freeaddrinfo(res);
 
-	char* msg = argv[1];
-	int len, bytes_sent;
+	return sockfd;
 
-	len = strlen(msg);
 
-	bytes_sent = send(sockfd, msg, len, 0);
+};
+
+int main(int argc, char* argv[]){
+
+	if (argc != 2){
+		fprintf(stderr, "Usage: %s <username>\n", argv[0]);
+		return 1;
+	}
+	
+	//grab a socket
+	int sockfd = get_socket();
+
+
+	//first they send their username
+	char* username = argv[1];
+
+	int len;
+	len = strlen(username);
+
+	int total_sent = 0;
+	int bytes_left = len;
+	int n;
+
+	while(total_sent < len) {
+		n = send(sockfd, username + total_sent, bytes_left, 0);
+		if (n == -1) { break; } // Handle error
+		total_sent += n;
+		bytes_left -= n;
+	}
+
+
+	char msg_buffer[1024];
+
+	while (1) {
+		printf("Message: ");
+		fflush(stdout);
+
+		if (fgets(msg_buffer, sizeof(msg_buffer), stdin) == NULL) break;
+
+		if (strcmp(msg_buffer, "exit") == 0) break;
+
+		int msg_len = strlen(msg_buffer);
+		int total_msg_sent = 0;
+
+		// Send the message directly from the buffer
+		while (total_msg_sent < msg_len) {
+			int n = send(sockfd, msg_buffer + total_msg_sent, msg_len - total_msg_sent, 0);
+			if (n <= 0) {
+				perror("Server disconnected");
+			}
+			total_msg_sent += n;
+		}
+	}
+
 
 }
+
+
+
+
+
+
+
+
+
