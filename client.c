@@ -88,6 +88,7 @@ int main(int argc, char* argv[]){
 
 	char msg_buffer[1024];
 
+	//Or just loop while the server is open we need to disconnect when this happens
 	while (1) {
 		printf("Message: ");
 		fflush(stdout);
