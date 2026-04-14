@@ -10,9 +10,9 @@
 
 #define PORT "3490" //TODO CHANGE THIS TO 6969?
 
-struct Client{
+struct client{
 	int fd;
-	char username[50];
+	char username[100];
 };
 
 int make_listener_socket(){
@@ -78,34 +78,58 @@ int make_listener_socket(){
 	return listener;
 }
 
-int add_client(int* pfds_count, int* pfds_total_count, struct pollfd* pfds, int socket){
+int add_client(int* pfds_count, int* pfds_total_count, struct pollfd* pfds, int socket, struct client* clients, char* username){
 
 	//Add socket to pfds array
+	
+
+	//And do the same with the client
 	
 	if (pfds_count == pfds_total_count){ //If we go beyond the bounds of the array realloc double
 		
 		pfds = realloc(pfds, (*pfds_total_count * 2) * sizeof(struct pollfd));
+		clients = realloc(clients, (*pfds_total_count * 2) * sizeof(struct client));
 
 		if (pfds == NULL){
-			printf("Failed to reallocate memory for the array");
+			printf("Failed to reallocate memory for the polls array");
+			exit(-1);
+		}
+
+		if (clients == NULL){
+			printf("Failed to reallocate memory for the client array");
 			exit(-1);
 		}
 
 		pfds[*pfds_count].fd = socket;
 		pfds[*pfds_count].events = POLLIN;
+
+		clients[*pfds_count].fd = socket;
+		//Setting username or something
+		strncpy(clients[*pfds_count].username, username, sizeof(clients[*pfds_count].username) - 1);
+		clients[*pfds_count].username[sizeof(clients[*pfds_count].username) - 1] = '\0';
+
 		(*pfds_count)++;
+
+
 		return 0;
 
 	}else{ //Just add the item to the array
 
 		pfds[*pfds_count].fd = socket;
 		pfds[*pfds_count].events = POLLIN;
+
+		clients[*pfds_count].fd = socket;
+		//Setting username or something
+		strncpy(clients[*pfds_count].username, username, sizeof(clients[*pfds_count].username) - 1);
+		clients[*pfds_count].username[sizeof(clients[*pfds_count].username) - 1] = '\0';
+
 		(*pfds_count)++;
+
 		return 0;
 	}
 }
 
-int remove_client(int socket, struct pollfd* pfds, int* pfds_count){
+int remove_client(int socket, struct pollfd* pfds, int* pfds_count, struct client* clients){
 
 	//Loop through the array and if the socket matches then we remove that member from the list and decremenet pfds_count
 	
@@ -114,6 +138,7 @@ int remove_client(int socket, struct pollfd* pfds, int* pfds_count){
 		if (pfds[i].fd == socket){
 			//Remove the user
 			pfds[i] = pfds[*pfds_count -1];
+			clients[i] = clients[*pfds_count -1];
 			(*pfds_count)--;
 			return 0;
 		}
@@ -121,12 +146,11 @@ int remove_client(int socket, struct pollfd* pfds, int* pfds_count){
 	}
 	return -1;
 
-
 }
 
 
 
-int process_client(int listener, int* pfds_count, int* pfds_total_count, struct pollfd* pfds){
+int process_client(int listener, int* pfds_count, int* pfds_total_count, struct pollfd* pfds, struct client* clients){
 
 	struct sockaddr_storage their_addr;
 	socklen_t addr_size = sizeof(their_addr);
@@ -141,11 +165,7 @@ int process_client(int listener, int* pfds_count, int* pfds_total_count, struct 
 		return -1;
 	}
 
-	//Add the new socket to the pfds array
-	if (add_client(pfds_count, pfds_total_count, pfds, new_fd) == -1){
-		fprintf(stderr, "Failed to add client");
-		exit(1);
-	}
+	
 	
 	//recv their username
 	char username[1023];
@@ -160,10 +180,16 @@ int process_client(int listener, int* pfds_count, int* pfds_total_count, struct 
 	
 	printf("New connection added to the Group using socket %d: USERNAME: %s ", new_fd, username);
 
+	//Add the new socket to the pfds array
+	if (add_client(pfds_count, pfds_total_count, pfds, new_fd, clients, username) == -1){
+		fprintf(stderr, "Failed to add client");
+		exit(1);
+	}
+
 	return 0;
 }
 
-void process_client_data(int listener, int *pfds_count, struct pollfd* pfds, int *pfd_i){
+void process_client_data(int listener, int *pfds_count, struct pollfd* pfds, int *pfd_i, struct client* clients){
 
 	//buffer for client data
 	char buf[256];
@@ -172,6 +198,7 @@ void process_client_data(int listener, int *pfds_count, struct pollfd* pfds, int
 	int nbytes = recv(pfds[*pfd_i].fd, buf, sizeof buf, 0);
 	//Record who sent it (so we don't send the message back to them)
 	int sender_fd = pfds[*pfd_i].fd;
+	char* username = clients[*pfd_i].username;
 
 	if (nbytes <= 0){ //Any error or connection closed
 		if (nbytes == 0){
@@ -182,12 +209,12 @@ void process_client_data(int listener, int *pfds_count, struct pollfd* pfds, int
 
 		close(pfds[*pfd_i].fd); //Close this socket
 	
-		remove_client(pfds[*pfd_i].fd, pfds, pfds_count);
+		remove_client(pfds[*pfd_i].fd, pfds, pfds_count, clients);
 
 
 	} else{ //Good Client data
 		
-		printf("server: recv from fd %d: %.*s", sender_fd, nbytes, buf);
+		printf("server: recv from fd %d: Username: %s | Message: %.*s", sender_fd, username, nbytes, buf);
 
 		for (int j = 0; j < *pfds_count; j++){
 			int dest_fd = pfds[j].fd;
@@ -204,7 +231,7 @@ void process_client_data(int listener, int *pfds_count, struct pollfd* pfds, int
 }
 
 
-void process_connections(int listener, int* pfds_count, int* pfds_total_count, struct pollfd* pfds){
+void process_connections(int listener, int* pfds_count, int* pfds_total_count, struct pollfd* pfds, struct client* clients){
 
 
 	for(int i = 0; i < *pfds_count; i++){
@@ -214,12 +241,12 @@ void process_connections(int listener, int* pfds_count, int* pfds_total_count, s
 			//If it's the listener, add it to the array
 			if (pfds[i].fd == listener){
 
-				process_client(listener, pfds_count, pfds_total_count, pfds);
+				process_client(listener, pfds_count, pfds_total_count, pfds, clients);
 
 			//Broadcast to every one in the array except for myself
 			}else{
 
-				process_client_data(listener, pfds_count, pfds, &i);
+				process_client_data(listener, pfds_count, pfds, &i, clients);
 
 			};
 		}
@@ -232,12 +259,22 @@ int main(void){
 	int pfds_total_size = 5;
 	struct pollfd* pfds = (struct pollfd*) malloc(pfds_total_size * sizeof(struct pollfd));
 
+	//And an array of clients
+	int clients_total_size = 5;
+	struct client* clients = (struct client*) malloc(clients_total_size * sizeof(struct client)); 	
+
 	if (pfds == NULL){
-		printf("Memory for array failed to allocate.\n");
+		printf("Memory for polling array failed to allocate.\n");
+		exit(1);
+	}
+
+	if (clients == NULL){
+		printf("Memory for client array failed to allocate.\n");
 		exit(1);
 	}
 
 	int pfds_count = 0;
+	int clients_count = 0;
 
 
 	int listener = make_listener_socket();
@@ -251,7 +288,7 @@ int main(void){
 
 	for (;;){
 		int num_events = poll(pfds, pfds_count, 2500); //Server waits on this line till a port has activity
-		process_connections(listener, &pfds_count, &pfds_total_size, pfds);
+		process_connections(listener, &pfds_count, &pfds_total_size, pfds, clients);
 	}
 
 
