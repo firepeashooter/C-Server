@@ -89,12 +89,14 @@ int add_client(int* pfds_count, int* pfds_total_count, struct pollfd* pfds, int 
 		pfds[*pfds_count].fd = socket;
 		pfds[*pfds_count].events = POLLIN;
 		(*pfds_count)++;
+		return 0;
 
 	}else{ //Just add the item to the array
 
 		pfds[*pfds_count].fd = socket;
 		pfds[*pfds_count].events = POLLIN;
 		(*pfds_count)++;
+		return 0;
 	}
 }
 
@@ -108,9 +110,11 @@ int remove_client(int socket, struct pollfd* pfds, int* pfds_count){
 			//Remove the user
 			pfds[i] = pfds[*pfds_count -1];
 			(*pfds_count)--;
+			return 0;
 		}
 
 	}
+	return -1;
 
 
 }
@@ -207,7 +211,6 @@ void process_connections(int listener, int* pfds_count, int* pfds_total_count, s
 }
 
 int main(void){
-
 
 	//Creates an dynamic array of pollfd structs
 	int pfds_total_size = 5;
