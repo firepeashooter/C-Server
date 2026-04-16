@@ -1,0 +1,33 @@
+services:
+  traefik:
+    image: traefik:v3.6.2
+    container_name: traefik
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+      - "8070:8080"
+    environment:
+      DUCKDNS_TOKEN: ${DUCKDNS_TOKEN}
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - ./traefik/traefik.yml:/traefik.yml:ro
+      - ./traefik/dynamic.yml:/dynamic/dynamic.yml:ro
+      - ./traefik/acme.json:/acme.json
+      - ./traefik/logs:/logs/traefik
+      - ./certs:/certs
+  chat-server:
+    build: .
+    container_name: chat-server
+    ports:
+      - "3490:3490"
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.chat-server.rule=Host(`bens-chat-server.duckdns.org`)"
+      - "traefik.http.routers.chat-server.entrypoints=websecure"
+      - "traefik.http.routers.chat-server.tls.certresolver=duckdns"
+      - "traefik.http.services.chat-server.loadbalancer.server.port=3490"
+      - "traefik.http.routers.chat-server.priority=200"
+      - "traefik.http.routers.chat-server.tls=true"
+
+
