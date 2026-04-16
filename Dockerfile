@@ -1,3 +1,5 @@
+###USING AN ENV TO COMPILE OUR CODE
+
 # Use a lightweight build image with gcc and libc-dev
 FROM gcc:latest AS builder
 
@@ -8,8 +10,9 @@ WORKDIR /usr/src/chat-server
 COPY ./ChatServer/chat-server.c .
 
 # Compile the application
-# We use -static to ensure it runs easily in smaller runtime images
 RUN gcc -o chat-server chat-server.c
+
+###USEING ANOTHER ENV TO RUN AND HOST THE SERVER
 
 # Use a smaller runtime image for the final container
 FROM debian:bookworm-slim
