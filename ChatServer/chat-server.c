@@ -162,6 +162,7 @@ int process_client(int listener, int* pfds_count, int* pfds_total_count, struct 
 	if (new_fd == -1){
 		perror("accept");
 		printf("Failed to connect User");
+		fflush(stderr);
 		return -1;
 	}
 
@@ -179,6 +180,7 @@ int process_client(int listener, int* pfds_count, int* pfds_total_count, struct 
 	}
 	
 	printf("New connection added to the Group using socket %d: USERNAME: %s ", new_fd, username);
+	fflush(stdout);
 
 	//Add the new socket to the pfds array
 	if (add_client(pfds_count, pfds_total_count, pfds, new_fd, clients, username) == -1){

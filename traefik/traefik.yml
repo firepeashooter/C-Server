@@ -26,6 +26,9 @@ entryPoints:
       tls:
         certResolver: duckdns
 
+  chat-entry:
+    address: ":3490"
+
 providers:
   docker:
     exposedByDefault: false

@@ -1,6 +1,7 @@
 services:
   traefik:
     image: traefik:v3.6.2
+    tty: true
     container_name: traefik
     restart: unless-stopped
     ports:
@@ -23,11 +24,11 @@ services:
       - "3490:3490"
     labels:
       - "traefik.enable=true"
-      - "traefik.http.routers.chat-server.rule=Host(`bens-chat-server.duckdns.org`)"
-      - "traefik.http.routers.chat-server.entrypoints=websecure"
-      - "traefik.http.routers.chat-server.tls.certresolver=duckdns"
-      - "traefik.http.services.chat-server.loadbalancer.server.port=3490"
-      - "traefik.http.routers.chat-server.priority=200"
-      - "traefik.http.routers.chat-server.tls=true"
-
-
+      - "traefik.tcp.routers.chat-server.rule=HostSNI(`*`)"
+      
+      # 2. Point to your new entrypoint (the one on port 3490)
+      - "traefik.tcp.routers.chat-server.entrypoints=chat-entry"
+      
+      # 3. Map it to the internal port your C code listens on
+      - "traefik.tcp.routers.chat-server.service=chat-server-svc"
+      - "traefik.tcp.services.chat-server-svc.loadbalancer.server.port=3490"
