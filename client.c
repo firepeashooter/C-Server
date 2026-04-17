@@ -5,6 +5,7 @@
 #include <netdb.h>      // For getaddrinfo() and struct addrinfo
 #include <unistd.h>     // For close()
 #include <stdlib.h>
+#include <poll.h>
 
 
 
@@ -85,29 +86,69 @@ int main(int argc, char* argv[]){
 	}
 
 
+	//we want to poll the standard input and our socket
+	
+	//sets up the array of pfds
+	struct pollfd pfds[2];
+
+	pfds[0].fd = 0;
+	pfds[0].events = POLLIN;
+
+	pfds[1].fd = sockfd;
+	pfds[1].events = POLLIN;
+
 	char msg_buffer[1024];
 
 	//Or just loop while the server is open we need to disconnect when this happens
 	while (1) {
-		printf("Message: ");
-		fflush(stdout);
 
-		if (fgets(msg_buffer, sizeof(msg_buffer), stdin) == NULL) break;
 
-		if (strcmp(msg_buffer, "exit") == 0) break;
+		int num_events = poll(pfds, 2, 2500);
 
-		int msg_len = strlen(msg_buffer);
-		int total_msg_sent = 0;
 
-		// Send the message directly from the buffer
-		while (total_msg_sent < msg_len) {
-			int n = send(sockfd, msg_buffer + total_msg_sent, msg_len - total_msg_sent, 0);
-			if (n <= 0) {
-				perror("Server disconnected");
+		if (pfds[0].revents & POLLIN){ //If the standard input is happening
+									   //
+			puts("Input Detected");
+			if (fgets(msg_buffer, sizeof(msg_buffer), stdin) == NULL) break;
+
+			//How the user exits
+			if (strcmp(msg_buffer, "exit\n") == 0) break;
+
+			int msg_len = strlen(msg_buffer);
+			int total_msg_sent = 0;
+
+			// Send the message directly from the buffer
+			while (total_msg_sent < msg_len) {
+				int n = send(sockfd, msg_buffer + total_msg_sent, msg_len - total_msg_sent, 0);
+				if (n <= 0) {
+					perror("Server disconnected");
+				}
+				total_msg_sent += n;
 			}
-			total_msg_sent += n;
+
+
 		}
-	}
+
+		if (pfds[1].revents & POLLIN){ //Else it's the server
+
+			puts("Server Detected");
+			//display the server message
+
+			char buf[1023];
+
+			int nbytes = recv(pfds[1].fd, buf, sizeof(buf) - 1, 0);
+
+			buf[nbytes] = '\0';
+
+			printf("Message Received: %s", buf);
+		}
+
+
+
+		// printf("Message: ");
+		// fflush(stdout);
+
+			}
 
 
 }
