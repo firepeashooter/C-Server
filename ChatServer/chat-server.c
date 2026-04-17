@@ -15,6 +15,26 @@ struct client{
 	char username[100];
 };
 
+
+int send_message(int sockfd, char* msg){
+
+	int msg_len = strlen(msg);
+	int total_msg_sent = 0;
+
+	// Send the message directly from the buffer
+	while (total_msg_sent < msg_len) {
+		int n = send(sockfd, msg + total_msg_sent, msg_len - total_msg_sent, 0);
+
+		if (n <= 0) {
+			perror("Server disconnected");
+			return -1;
+		}
+
+		total_msg_sent += n;
+	}
+
+}
+
 int make_listener_socket(){
 
 	//Filling in values for the structs
@@ -131,19 +151,47 @@ int add_client(int* pfds_count, int* pfds_total_count, struct pollfd* pfds, int 
 
 int remove_client(int socket, struct pollfd* pfds, int* pfds_count, struct client* clients){
 
-	//Loop through the array and if the socket matches then we remove that member from the list and decremenet pfds_count
+	//Notify the clients that we are removing the current person
+	char goodbye_message[500];
+	char* username;
 	
+	//Loop through the array and if the socket matches then we remove that member from the list and decremenet pfds_count
 	for(int i = 0; i < *pfds_count; i++){
 
 		if (pfds[i].fd == socket){
+
+			//grab the username
+			username = clients[i].username;
+			
+			//Format the message
+			snprintf(goodbye_message, sizeof(goodbye_message), "%s Left the Chat\n", username);
+
+			//Send clients except themselves that they left
+			for (int j = 0; j < *pfds_count; j++){
+
+				if (j ==0){ //if we are the listener
+					continue;
+				} 
+
+				if (pfds[j].fd == socket){
+					continue;
+				} else {
+					send_message(pfds[j].fd, goodbye_message);
+				}
+			}
+			
 			//Remove the user
 			pfds[i] = pfds[*pfds_count -1];
 			clients[i] = clients[*pfds_count -1];
 			(*pfds_count)--;
+
+
 			return 0;
+
 		}
 
 	}
+
 	return -1;
 
 }
@@ -170,6 +218,10 @@ int process_client(int listener, int* pfds_count, int* pfds_total_count, struct 
 	
 	//recv their username
 	char username[1023];
+	char welcome_message[500];
+	char self_welcome_message[500];
+
+	
 
 	//TODO: We should probably loop this to get the whole thing if it's long
 	
@@ -178,7 +230,11 @@ int process_client(int listener, int* pfds_count, int* pfds_total_count, struct 
 	if (nbytes > 0) {
 		username[nbytes] = '\0'; 
 	}
-	
+
+	//Format the strings
+	snprintf(welcome_message, sizeof(welcome_message), "%s Joined the Chat\n", username);
+	snprintf(self_welcome_message, sizeof(welcome_message), "Joined the Chat as %s\n", username);
+
 	printf("New connection added to the Group using socket %d: USERNAME: %s ", new_fd, username);
 	fflush(stdout);
 
@@ -188,7 +244,21 @@ int process_client(int listener, int* pfds_count, int* pfds_total_count, struct 
 		exit(1);
 	}
 
+	//Send clients except themselves that someone joined
+	for (int i = 0; i < *pfds_count; i++){
+
+		if (pfds[i].fd == listener){ //if we are the listener
+			continue;
+		} 
+
+		if (pfds[i].fd == new_fd){
+			send_message(new_fd, self_welcome_message);
+		} else {
+			send_message(pfds[i].fd, welcome_message);
+		}
+	}
 	return 0;
+
 }
 
 void process_client_data(int listener, int *pfds_count, struct pollfd* pfds, int *pfd_i, struct client* clients){
@@ -209,10 +279,11 @@ void process_client_data(int listener, int *pfds_count, struct pollfd* pfds, int
 			perror("recv");
 		}
 
-		close(pfds[*pfd_i].fd); //Close this socket
+		int fd_to_close = pfds[*pfd_i].fd;
 	
-		remove_client(pfds[*pfd_i].fd, pfds, pfds_count, clients);
+		remove_client(fd_to_close, pfds, pfds_count, clients);
 
+		close(fd_to_close); //Close this socket
 
 	} else{ //Good Client data
 		
