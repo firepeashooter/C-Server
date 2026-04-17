@@ -111,12 +111,12 @@ int add_client(int* pfds_count, int* pfds_total_count, struct pollfd* pfds, int 
 		clients = realloc(clients, (*pfds_total_count * 2) * sizeof(struct client));
 
 		if (pfds == NULL){
-			printf("Failed to reallocate memory for the polls array");
+			printf("Failed to reallocate memory for the polls array\n");
 			exit(-1);
 		}
 
 		if (clients == NULL){
-			printf("Failed to reallocate memory for the client array");
+			printf("Failed to reallocate memory for the client array\n");
 			exit(-1);
 		}
 
@@ -235,7 +235,7 @@ int process_client(int listener, int* pfds_count, int* pfds_total_count, struct 
 	snprintf(welcome_message, sizeof(welcome_message), "%s Joined the Chat\n", username);
 	snprintf(self_welcome_message, sizeof(welcome_message), "Joined the Chat as %s\n", username);
 
-	printf("New connection added to the Group using socket %d: USERNAME: %s ", new_fd, username);
+	printf("New connection added to the Group using socket %d: USERNAME: %s\n ", new_fd, username);
 	fflush(stdout);
 
 	//Add the new socket to the pfds array
