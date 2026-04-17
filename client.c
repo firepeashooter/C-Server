@@ -108,7 +108,6 @@ int main(int argc, char* argv[]){
 
 		if (pfds[0].revents & POLLIN){ //If the standard input is happening
 									   //
-			puts("Input Detected");
 			if (fgets(msg_buffer, sizeof(msg_buffer), stdin) == NULL) break;
 
 			//How the user exits
@@ -131,7 +130,6 @@ int main(int argc, char* argv[]){
 
 		if (pfds[1].revents & POLLIN){ //Else it's the server
 
-			puts("Server Detected");
 			//display the server message
 
 			char buf[1023];
@@ -140,7 +138,7 @@ int main(int argc, char* argv[]){
 
 			buf[nbytes] = '\0';
 
-			printf("Message Received: %s", buf);
+			printf("%s", buf);
 		}
 
 

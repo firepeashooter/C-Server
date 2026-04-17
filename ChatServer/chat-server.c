@@ -271,6 +271,7 @@ void process_client_data(int listener, int *pfds_count, struct pollfd* pfds, int
 	//Record who sent it (so we don't send the message back to them)
 	int sender_fd = pfds[*pfd_i].fd;
 	char* username = clients[*pfd_i].username;
+	char message[2048];
 
 	if (nbytes <= 0){ //Any error or connection closed
 		if (nbytes == 0){
@@ -286,17 +287,21 @@ void process_client_data(int listener, int *pfds_count, struct pollfd* pfds, int
 		close(fd_to_close); //Close this socket
 
 	} else{ //Good Client data
+
+		buf[nbytes] = '\0';
 		
 		printf("server: recv from fd %d: Username: %s | Message: %.*s", sender_fd, username, nbytes, buf);
+
+
+		//formatting our message
+		snprintf(message, sizeof(message), "%s: %s", username, buf);
 
 		for (int j = 0; j < *pfds_count; j++){
 			int dest_fd = pfds[j].fd;
 
 			//Except the listener and outselves
 			if (dest_fd != listener && dest_fd != sender_fd){
-				if (send(dest_fd, buf, nbytes, 0) == -1){
-					perror("send");
-				}
+				send_message(dest_fd, message);
 			}
 		}
 
