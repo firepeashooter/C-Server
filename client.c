@@ -1,5 +1,6 @@
 #include <stdio.h>      // For printf/errors
 #include <string.h>     // For memset
+#include <sys/poll.h>
 #include <sys/types.h>  // For socket types
 #include <sys/socket.h> // For socket(), connect()
 #include <netdb.h>      // For getaddrinfo() and struct addrinfo
@@ -105,9 +106,14 @@ int main(int argc, char* argv[]){
 
 		int num_events = poll(pfds, 2, 2500);
 
+		if (pfds[1].revents & (POLLHUP | POLLERR)) {
+    		printf("Connection lost: Server disappeared.\n");
+			close(sockfd);
+
+			return -1;
+		}
 
 		if (pfds[0].revents & POLLIN){ //If the standard input is happening
-									   //
 			if (fgets(msg_buffer, sizeof(msg_buffer), stdin) == NULL) break;
 
 			//How the user exits
@@ -121,6 +127,8 @@ int main(int argc, char* argv[]){
 				int n = send(sockfd, msg_buffer + total_msg_sent, msg_len - total_msg_sent, 0);
 				if (n <= 0) {
 					perror("Server disconnected");
+					return -1;
+					close(sockfd);
 				}
 				total_msg_sent += n;
 			}
@@ -128,7 +136,7 @@ int main(int argc, char* argv[]){
 
 		}
 
-		if (pfds[1].revents & POLLIN){ //Else it's the server
+		if (pfds[1].revents & POLLIN){
 
 			//display the server message
 
@@ -142,11 +150,7 @@ int main(int argc, char* argv[]){
 		}
 
 
-
-		// printf("Message: ");
-		// fflush(stdout);
-
-			}
+	}
 
 
 }
