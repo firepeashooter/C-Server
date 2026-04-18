@@ -75,6 +75,8 @@ int main(int argc, char* argv[]){
 	int len;
 	len = strlen(username);
 
+	//Maybe make this a function so we can always send the whole buffer and not have
+	//to worry about it not sending everything
 	int total_sent = 0;
 	int bytes_left = len;
 	int n;
@@ -103,7 +105,6 @@ int main(int argc, char* argv[]){
 	//Or just loop while the server is open we need to disconnect when this happens
 	while (1) {
 
-
 		int num_events = poll(pfds, 2, 2500);
 
 		if (pfds[1].revents & (POLLHUP | POLLERR)) {
@@ -114,6 +115,8 @@ int main(int argc, char* argv[]){
 		}
 
 		if (pfds[0].revents & POLLIN){ //If the standard input is happening
+			
+			//we need to find a better way to collect user input
 			if (fgets(msg_buffer, sizeof(msg_buffer), stdin) == NULL) break;
 
 			//How the user exits
