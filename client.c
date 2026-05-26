@@ -31,7 +31,7 @@ int get_socket(){
 	hints.ai_socktype = SOCK_STREAM;
 
 	//this is the dns lookup
-	if((status = getaddrinfo("bens-chat-server.duckdns.org", PORT, &hints, &res)) != 0){
+	if((status = getaddrinfo("192.168.1.141", PORT, &hints, &res)) != 0){
 		fprintf(stderr, "getaddrinfo: %s\n", gai_strerror(status));
 		return 1;
 	};
