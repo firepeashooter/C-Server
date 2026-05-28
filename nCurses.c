@@ -2,8 +2,98 @@
 #include <ncurses.h>
 #include <ncurses.h>
 #include <unistd.h>
+#include <string.h>     // For memset
+#include <sys/poll.h>
+#include <sys/types.h>  // For socket types
+#include <sys/socket.h> // For socket(), connect()
+#include <netdb.h>      // For getaddrinfo() and struct addrinfo
+#include <unistd.h>     // For close()
+#include <stdlib.h>
+#include <poll.h>
 
-int main() {
+#define PORT "3490" //Make sure that this lines up with what the server is
+
+int get_socket(){
+
+	//SETTING UP THE SOCKET
+	
+	//fills the structs we need for what kind of connection we want
+	struct addrinfo hints, *res;
+	int sockfd;
+	int status;
+	int new_fd;
+	socklen_t addr_size;
+	struct sockaddr_storage their_addr;
+	char buf[1024];
+	int numbytes;
+
+	memset(&hints, 0, sizeof hints);
+	hints.ai_family = AF_UNSPEC;
+	hints.ai_socktype = SOCK_STREAM;
+
+	//this is the dns lookup
+	if((status = getaddrinfo("192.168.2.10", PORT, &hints, &res)) != 0){
+		fprintf(stderr, "getaddrinfo: %s\n", gai_strerror(status));
+		return 1;
+	};
+
+	//Make a socket
+	sockfd = socket(res->ai_family, res->ai_socktype, res->ai_protocol);
+
+	if (sockfd == -1){
+		perror("server: socket");
+		freeaddrinfo(res);
+		return 2;
+	};
+
+	if ( (connect(sockfd, res->ai_addr, res->ai_addrlen) == -1)){
+		perror("server: connect");
+		freeaddrinfo(res);
+		return 3;
+	}
+
+	freeaddrinfo(res);
+
+	return sockfd;
+
+
+};
+
+int send_message(int sockfd, char* message){
+
+	int msg_len = strlen(message);
+
+	int total_sent = 0;
+	int bytes_left = msg_len;
+	int n;
+
+	while (total_sent < msg_len){
+		n = send(sockfd, message + total_sent, bytes_left, 0);
+		if (n == -1) {break;}
+		total_sent += n;
+		bytes_left -= n;
+	}
+
+	return 0;
+
+}
+
+int main(int argc, char* argv[]) {
+
+	//Error handles the username
+	if (argc != 2){
+		fprintf(stderr, "Usage: %s <username>\n", argv[0]);
+		return 1;
+	}
+
+	char* username = argv[1];
+
+	puts(username);
+	int sockfd = get_socket();
+
+	//Send the username
+	send_message(sockfd, username);
+
     // 1. Setup
     initscr();
     cbreak();
@@ -42,8 +132,7 @@ int main() {
 	int msg_indx = 0;
 
 
-
-    // 6. Wait
+    // 6. Wait loop that waits for user input
 	while(1){
 
 		int ch = wgetch(input_win);
@@ -57,13 +146,16 @@ int main() {
 			}	
 
 			msg_buffer[msg_indx] = '\0';
+			//send the message to the server
+			send_message(sockfd, msg_buffer);
+			send_message(sockfd, "\n");
+
 			mvwprintw(chat_win, max_y - num_messages, 2, "You: %s", msg_buffer);
 			wrefresh(chat_win);
 			wclear(input_win);
 
 			//Flush the buffer
 			msg_indx = 0;
-
 
 			num_messages++;
 
@@ -84,9 +176,7 @@ int main() {
 
 		}
 
-
-
-			}
+	}
 
     // 7. Exit
     endwin();
