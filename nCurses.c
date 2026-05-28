@@ -74,6 +74,9 @@ int send_message(int sockfd, char* message){
 		bytes_left -= n;
 	}
 
+	n = send(sockfd, "\n", 1, 0);
+    if (n == -1) { return -1; }
+
 	return 0;
 
 }
@@ -147,8 +150,7 @@ int main(int argc, char* argv[]) {
 
 			msg_buffer[msg_indx] = '\0';
 			//send the message to the server
-			send_message(sockfd, msg_buffer);
-			send_message(sockfd, "\n");
+			send_message(sockfd, msg_buffer	);
 
 			mvwprintw(chat_win, max_y - num_messages, 2, "You: %s", msg_buffer);
 			wrefresh(chat_win);
@@ -164,6 +166,27 @@ int main(int argc, char* argv[]) {
 			mvwprintw(input_win, 1, 1, "Input: ");
 			wmove(input_win, 1, 8);  // 3. Put the cursor back in the "home" position
 			wrefresh(input_win); 
+
+		//handle backspace
+		}else if (ch == KEY_BACKSPACE || ch == 127 || ch == '\b'){
+
+			if (msg_indx > 0){
+				msg_indx--;                  // Move index back
+				msg_buffer[msg_indx] = '\0'; // Your clean memory reset
+
+				// 1. Move the window's internal cursor back one space
+				int cur_y, cur_x;
+				getyx(input_win, cur_y, cur_x);
+				wmove(input_win, cur_y, cur_x - 1);
+
+				// 2. Wipe the character under the cursor and pull everything back
+				wdelch(input_win);
+
+				// 3. Render the change to the monitor
+				wrefresh(input_win);
+			}
+
+
 		} else{
 			
 			//Add to the buffer
