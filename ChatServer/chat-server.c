@@ -299,8 +299,8 @@ void process_client_data(int listener, int *pfds_count, struct pollfd* pfds, int
 		for (int j = 0; j < *pfds_count; j++){
 			int dest_fd = pfds[j].fd;
 
-			//Except the listener and outselves
-			if (dest_fd != listener && dest_fd != sender_fd){
+			//Except the listener
+			if (dest_fd != listener){
 				send_message(dest_fd, message);
 			}
 		}
