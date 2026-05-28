@@ -10,8 +10,54 @@
 #include <unistd.h>     // For close()
 #include <stdlib.h>
 #include <poll.h>
+#include <pthread.h> //for multi threading oooo
 
 #define PORT "3490" //Make sure that this lines up with what the server is
+
+// Global variables so the background thread can access the UI
+WINDOW *chat_win;
+int num_messages = 2; // Make sure this is global now so both loops can update it
+
+void* listen_server(void* arg) {
+    int sockfd = *(int*)arg;
+    char recv_buffer[512];
+    
+    while (1) {
+        // This blocks until the server sends a message
+        int bytes_received = recv(sockfd, recv_buffer, sizeof(recv_buffer) - 1, 0);
+        
+        if (bytes_received > 0) {
+            recv_buffer[bytes_received] = '\0'; // Safety null-terminator
+            
+            int chat_y, chat_x;
+            getmaxyx(chat_win, chat_y, chat_x);
+
+            // 1. Handle scrolling exactly like we did before
+            if (num_messages >= chat_y - 2) {
+                wscrl(chat_win, 1);
+                num_messages = chat_y - 3;
+            }
+
+            // 2. Print the message from the server directly into the chat window
+            mvwprintw(chat_win, num_messages, 2, "%s", recv_buffer);
+            
+            // 3. Redraw the box over the scrolled area
+            box(chat_win, 0, 0);
+            mvwprintw(chat_win, 1, 1, "Chat History"); 
+            wrefresh(chat_win);
+
+            num_messages++;
+            
+        } else if (bytes_received == 0) {
+            // Server disconnected gracefully
+            break;
+        } else {
+            // Socket error
+            break;
+        }
+    }
+    return NULL;
+}
 
 int get_socket(){
 
@@ -110,9 +156,10 @@ int main(int argc, char* argv[]) {
     int y, x;
     getmaxyx(stdscr, y, x);
 
-    // 2. Create Windows
-    WINDOW *chat_win = newwin(y - 3, x, 0, 0);
+    chat_win = newwin(y - 2, x, 0, 0);  // Changed from y - 3 to y - 2
     WINDOW *input_win = newwin(3, x, y - 3, 0);
+
+    scrollok(chat_win, TRUE);
 
     // 3. IMPORTANT: Refresh the background first
     refresh();
@@ -135,6 +182,10 @@ int main(int argc, char* argv[]) {
 	int msg_indx = 0;
 
 
+	pthread_t thread_id;
+	pthread_create(&thread_id, NULL, listen_server, (void*)&sockfd);
+
+
     // 6. Wait loop that waits for user input
 	while(1){
 
@@ -144,28 +195,19 @@ int main(int argc, char* argv[]) {
 
 		if (ch == '\n'){
 
-			if (num_messages > 10){
-				num_messages = 10;
-			}	
-
 			msg_buffer[msg_indx] = '\0';
-			//send the message to the server
-			send_message(sockfd, msg_buffer	);
+        
+			// 1. Send the message to the server
+			send_message(sockfd, msg_buffer);
 
-			mvwprintw(chat_win, max_y - num_messages, 2, "You: %s", msg_buffer);
-			wrefresh(chat_win);
+			// 2. Clear the input box and get ready for the next message
 			wclear(input_win);
-
-			//Flush the buffer
 			msg_indx = 0;
 
-			num_messages++;
-
-			//Redraw the input
 			box(input_win, 0, 0);
 			mvwprintw(input_win, 1, 1, "Input: ");
-			wmove(input_win, 1, 8);  // 3. Put the cursor back in the "home" position
-			wrefresh(input_win); 
+			wmove(input_win, 1, 8);
+			wrefresh(input_win);		
 
 		//handle backspace
 		}else if (ch == KEY_BACKSPACE || ch == 127 || ch == '\b'){
