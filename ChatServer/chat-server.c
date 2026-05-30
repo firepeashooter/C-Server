@@ -33,6 +33,8 @@ int send_message(int sockfd, char* msg){
 		total_msg_sent += n;
 	}
 
+	return 0;
+
 }
 
 int make_listener_socket(){
@@ -264,7 +266,7 @@ int process_client(int listener, int* pfds_count, int* pfds_total_count, struct 
 void process_client_data(int listener, int *pfds_count, struct pollfd* pfds, int *pfd_i, struct client* clients){
 
 	//buffer for client data
-	char buf[256];
+	char buf[1024];
 
 	//Recieve the message
 	int nbytes = recv(pfds[*pfd_i].fd, buf, sizeof buf, 0);
@@ -290,7 +292,7 @@ void process_client_data(int listener, int *pfds_count, struct pollfd* pfds, int
 
 		buf[nbytes] = '\0';
 		
-		printf("server: recv from fd %d: Username: %s | Message: %.*s", sender_fd, username, nbytes, buf);
+		printf("server: recv from fd %d: Username: %s | Message: %.*s\n", sender_fd, username, nbytes, buf);
 
 
 		//formatting our message
