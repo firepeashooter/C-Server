@@ -43,7 +43,7 @@ void* listen_server(void* arg) {
             }
 
             // 2. Print the message from the server directly into the chat window
-            mvwprintw(chat_win, num_messages, 2, "%s", recv_buffer);
+            mvwprintw(chat_win, num_messages, 4, "%s", recv_buffer);
             
             // 3. Redraw the box over the scrolled area
             box(chat_win, 0, 0);
