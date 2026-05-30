@@ -17,6 +17,7 @@
 // Global variables so the background thread can access the UI
 WINDOW *chat_win;
 int num_messages = 2; // Make sure this is global now so both loops can update it
+pthread_mutex_t screen_mutex = PTHREAD_MUTEX_INITIALIZER;
 
 void* listen_server(void* arg) {
     int sockfd = *(int*)arg;
@@ -28,6 +29,8 @@ void* listen_server(void* arg) {
         
         if (bytes_received > 0) {
             recv_buffer[bytes_received] = '\0'; // Safety null-terminator
+												//
+			pthread_mutex_lock(&screen_mutex);
             
             int chat_y, chat_x;
             getmaxyx(chat_win, chat_y, chat_x);
@@ -47,6 +50,8 @@ void* listen_server(void* arg) {
             wrefresh(chat_win);
 
             num_messages++;
+
+			pthread_mutex_unlock(&screen_mutex);
             
         } else if (bytes_received == 0) {
             // Server disconnected gracefully
@@ -119,9 +124,6 @@ int send_message(int sockfd, char* message){
 		total_sent += n;
 		bytes_left -= n;
 	}
-
-	n = send(sockfd, "\n", 1, 0);
-    if (n == -1) { return -1; }
 
 	return 0;
 
@@ -200,6 +202,7 @@ int main(int argc, char* argv[]) {
 			// 1. Send the message to the server
 			send_message(sockfd, msg_buffer);
 
+    	    pthread_mutex_lock(&screen_mutex);
 			// 2. Clear the input box and get ready for the next message
 			wclear(input_win);
 			msg_indx = 0;
@@ -208,6 +211,8 @@ int main(int argc, char* argv[]) {
 			mvwprintw(input_win, 1, 1, "Input: ");
 			wmove(input_win, 1, 8);
 			wrefresh(input_win);		
+
+			pthread_mutex_unlock(&screen_mutex);
 
 		//handle backspace
 		}else if (ch == KEY_BACKSPACE || ch == 127 || ch == '\b'){
