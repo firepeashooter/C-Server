@@ -16,6 +16,7 @@
 
 // Global variables so the background thread can access the UI
 WINDOW *chat_win;
+WINDOW *input_win; //
 int num_messages = 2; // Make sure this is global now so both loops can update it
 pthread_mutex_t screen_mutex = PTHREAD_MUTEX_INITIALIZER;
 
@@ -48,6 +49,7 @@ void* listen_server(void* arg) {
             box(chat_win, 0, 0);
             mvwprintw(chat_win, 1, 1, "Chat History"); 
             wrefresh(chat_win);
+			wrefresh(input_win);
 
             num_messages++;
 
@@ -159,7 +161,7 @@ int main(int argc, char* argv[]) {
     getmaxyx(stdscr, y, x);
 
     chat_win = newwin(y - 2, x, 0, 0);  // Changed from y - 3 to y - 2
-    WINDOW *input_win = newwin(3, x, y - 3, 0);
+    input_win = newwin(3, x, y - 3, 0);
 
     scrollok(chat_win, TRUE);
 
@@ -174,6 +176,7 @@ int main(int argc, char* argv[]) {
     // 5. Draw to Input Window
     box(input_win, 0, 0);
     mvwprintw(input_win, 1, 1, "Input: ");
+	wmove(input_win, 1, 8);
     wrefresh(input_win); // Show the input window
 						 //
 	int num_messages = 2; //Starts at the offset we need for the input window
