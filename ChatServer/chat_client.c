@@ -40,6 +40,10 @@ void* listen_server(void* arg) {
             if (num_messages >= chat_y - 2) {
                 wscrl(chat_win, 1);
                 num_messages = chat_y - 3;
+
+				//Removes the phantom line that shows up during scrolling
+				wmove(chat_win, num_messages, 1);
+            	wclrtoeol(chat_win);
             }
 
             // 2. Print the message from the server directly into the chat window
